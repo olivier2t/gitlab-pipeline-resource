@@ -13,7 +13,8 @@ main() {
 
 extractVersion() {
   echo "\n--> extracting requested version..."
-  requestedVersion=$(jq -r '.version.id // ""' < $payload)
+  jq -r '.' < $payload
+  requestedVersion=$(jq -r '.version' < $payload)
   echo "requested version: $requestedVersion"
 }
 
