@@ -72,6 +72,5 @@ emitResult() {
 
 if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
   source $(dirname $0)/common
-  source $(dirname $0)/curlops
   main "$@"
 fi
