@@ -63,11 +63,10 @@ waitForCompletion() {
   done
   if [ "${pipeline_status}" = "success" ]; then
     echo "Pipeline completed successfully"
-    emitResult
-    exit 0;
   else
-    echo "Pipeline failed (status: ${pipeline_status})"
-    emitResult
+    echo "Pipeline did not complete (status: ${pipeline_status})"
+    echo "--> GitLab pipeline URL: ${pipeline_web_url}"
+    echo "Aborting job..."
     exit 1;
   fi
 }

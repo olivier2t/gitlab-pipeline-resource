@@ -6,7 +6,7 @@ exec 5>&1 # make stdout available as fd 5 for the result
 exec 1>&2 # redirect all output to stderr for logging
 
 main() {
-  echo "\n\n--[IN]-------------------------"
+  echo "--[IN]-------------------------"
   targetDirectory $1
   extractVersion
   fetchResource
@@ -15,11 +15,11 @@ main() {
 
 targetDirectory() {
   target_dir=${1:-`echo $TMPDIR`}
-  echo "\n--> target directory is: $target_dir"
+  echo "--> target directory is: $target_dir"
 }
 
 extractVersion() {
-  echo "\n--> extracting requested version..."
+  echo "--> extracting requested version..."
   requestedVersion=$(jq -r '.version.id // ""' < $payload)
   echo "requested version: $requestedVersion"
 }
@@ -27,7 +27,7 @@ extractVersion() {
 fetchResource() {
   set -o pipefail
 
-  echo "\n--> retrieving GitLab pipeline details ..."
+  echo "--> retrieving GitLab pipeline details ..."
 
   response_body=$(mktemp /tmp/response_body.XXXXXX)
   curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
