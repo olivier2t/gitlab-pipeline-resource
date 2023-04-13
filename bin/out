@@ -37,6 +37,9 @@ echo "Var value: $(_jq '.value')"
   cmd="${cmd} ${source_base_url}/api/v4/projects/${source_project_id}/trigger/pipeline"
   
 echo "Executing ${cmd}"
+  response_body=$(mktemp /tmp/response_body.XXXXXX)
+  log "created file for response_body at $response_body"
+
   eval "$cmd" > $response_body || exit $1
   cat ${response_body}
 
