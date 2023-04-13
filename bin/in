@@ -1,0 +1,82 @@
+#!/bin/bash
+
+set -e
+
+exec 5>&1 # make stdout available as fd 5 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+main() {
+  log "\n\n--[IN]-------------------------"
+  targetDirectory $1
+  extractVersion
+  fetchResource
+  emitResult
+}
+
+targetDirectory() {
+  target_dir=${1:-`echo $TMPDIR`}
+  log "\n--> target directory is: $target_dir"
+}
+
+extractVersion() {
+  log "\n--> extracting requested version..."
+  requestedVersion=$(jq -r '.version.id // ""' < $payload)
+  log "requested version: $requestedVersion"
+}
+
+fetchResource() {
+  set -o pipefail
+
+  log -p "\n--> retrieving GitLab pipeline details ..."
+
+  curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
+    "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${requestedVersion}" > $response_body || exit $1
+  cat ${response_body}
+  cp ${response_body} ${target_dir}/body
+
+  pipeline_status=$(cat $response_body | jq -r ".status")
+  pipeline_status=$(trim $pipeline_status)
+
+  pipeline_web_url=$(cat $response_body | jq -r ".web_url")
+  pipeline_web_url=$(trim $pipeline_web_url)
+
+  pipeline_created_by=$(cat $response_body | jq -r ".user.name")
+  pipeline_created_by=$(trim $pipeline_created_by)
+
+  pipeline_created_at=$(cat $response_body | jq -r ".created_at")
+  pipeline_created_at=$(trim $pipeline_created_at)
+
+  # if [ "${pipeline_status}" = "success" ]; then
+  #   echo "GitLab pipeline ID ${pipeline_id} completed successfully"
+  #   exit 0; 
+  # else
+  #   echo "Error in GitLab pipeline ID ${pipeline_id} (status: ${pipeline_status})"
+  #   exit 1;
+  # fi
+
+}
+
+emitResult() {
+  jq  --arg pipeline_id "$requestedVersion" \
+      --arg pipeline_status "$pipeline_status" \
+      --arg pipeline_web_url "$pipeline_web_url" \
+      --arg pipeline_created_by "$pipeline_created_by" \
+      --arg pipeline_created_at "$pipeline_created_at" \
+      -n '{
+    "version": {
+      "id": $pipeline_id
+    },
+    "metadata": [
+      { "name": "status", "value": $pipeline_status },
+      { "name": "web_url", "value": $pipeline_web_url },
+      { "name": "created_by", "value": $pipeline_created_by },
+      { "name": "created_at", "value": $pipeline_created_at }
+    ]
+  }' >&5
+}
+
+if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
+  source $(dirname $0)/common
+  source $(dirname $0)/curlops
+  main "$@"
+fi

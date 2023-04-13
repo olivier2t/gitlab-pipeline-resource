@@ -1,0 +1,164 @@
+#!/bin/bash
+
+# colors
+export esc=$(printf '\033')
+export gray=${esc}$(printf '[1;30m')
+export red=${esc}$(printf '[31m')
+export green=${esc}$(printf '[32m')
+export yellow=${esc}$(printf '[33m')
+export blue=${esc}$(printf '[34m')
+export cyan=${esc}$(printf '[36m')
+export white=${esc}$(printf '[37m')
+export reset=${esc}$(printf '[0m')
+
+# -------------------------------------------------------------------------------------
+# helper functions
+
+log() {
+    # accept args
+    while test $# -gt 0; do
+      case "$1" in
+          -p|--public)
+              shift
+              local PUBLIC=true
+              ;;
+          -j|--json)
+              shift
+              local JSON=true
+              ;;
+          *)
+              break
+              ;;
+      esac
+    done
+
+  # if the arg given is json, pretty print it
+  if [ "$JSON" = true ]; then
+    echo $1 | tr '\r\n' ' ' | jq -r '.' >> /tmp/resource.log
+  else
+    echo -e $1 >> /tmp/resource.log
+  fi
+
+  # also echo this to stdout so it shows up in concourse ui console
+  if [ "$PUBLIC" = true ]; then
+      if [ "$JSON" = true ]; then
+        echo $1 | tr '\r\n' ' ' | jq -r '.'
+      else
+        echo -e $1
+      fi
+  fi
+}
+
+isTrue() {
+  if notSet $1; then
+    return 1;
+  else
+    eval varVal=\$$1;
+    if ! [[ $varVal = true ]]; then
+        return 1;
+    fi
+  fi
+}
+
+notTrue() {
+  if ! notSet $1; then
+    eval varVal=\$$1;
+    if [[ $varVal = true ]]; then
+      return 1;
+    fi
+  fi
+}
+
+isSet() {
+  eval varVal=\$$1;
+  if [ -z "$varVal" ]; then return 1; fi
+  return 0;
+}
+
+notSet() {
+  eval varVal=\$$1;
+  if [ -z "$varVal" ]; then return 0; fi
+  return 1;
+}
+
+isSensitive() {
+    if isTrue params_sensitive; then return 0; fi
+    if isTrue source_sensitive && notSet params_sensitive; then return 0; fi
+    return 1;
+}
+
+trim() {
+  local var="$*"
+  # remove leading whitespace characters
+  var="${var#"${var%%[![:space:]]*}"}"
+  # remove trailing whitespace characters
+  var="${var%"${var##*[![:space:]]}"}"
+  printf '%s' "$var"
+}
+
+# usage: containsElement "candidate" "${the_array_to_test[@]}"
+containsElement () {
+  local e match="$1"
+  shift
+  for e; do [[ "$e" == "$match" ]] && return 0; done
+  return 1
+}
+
+# given a string, performs token replacement for the concourse build metadata environment variables
+replaceBuildMetadata() {
+  local str=$1
+  for var in BUILD_ID BUILD_NAME BUILD_JOB_NAME BUILD_PIPELINE_NAME BUILD_TEAM_NAME BUILD_CREATED_BY ATC_EXTERNAL_URL; do
+    str="${str//\$$var/${!var:-}}"
+    str="${str//\$\{$var\}/${!var:-}}"
+  done
+  echo "$str"
+}
+
+replaceBuildMetadataInFile() {
+  local source_file=$1
+  local target_file=${2:-$source_file}
+  local tmp="$(cat "$target_file")"
+  echo "$(replaceBuildMetadata "$tmp")" > "$target_file"
+}
+
+# given a string, determine if it is listed in our "build_metadata" for token replacement
+shouldReplaceBuildMetadataIn() {
+  local component=$1
+  if isSet params_build_metadata; then
+    if $(jq --arg COMPONENT "$component" 'any(index($COMPONENT))' <<< "$params_build_metadata"); then return 0; fi
+  elif isSet source_build_metadata; then
+    if $(jq --arg COMPONENT "$component" 'any(index($COMPONENT))' <<< "$source_build_metadata"); then return 0; fi
+  fi
+  return 1;
+}
+
+shouldReplaceBuildMetadataInHeaders() {
+  if $(shouldReplaceBuildMetadataIn "headers"); then return 0; fi
+  return 1;
+}
+
+shouldReplaceBuildMetadataInBody() {
+  if $(shouldReplaceBuildMetadataIn "body"); then return 0; fi
+  return 1;
+}
+
+# -------------------------------------------------------------------------------------
+# write the request payload to a tmp file
+payload=$(mktemp /tmp/resource-in.XXXXXX)
+cat > $payload <&0
+
+
+# -------------------------------------------------------------------------------------
+# slurp some of the config into variables to make them easily accessible by our scripts
+
+# source config
+source_base_url=$(jq -r '.source.base_url // ""' < $payload)
+source_project_id=$(jq -r '.source.project_id // ""' < $payload)
+source_trigger_token=$(jq -r '.source.trigger_token // ""' < $payload)
+source_access_token=$(jq -r '.source.access_token // ""' < $payload)
+source_ref=$(jq -r '.source.ref // ""' < $payload)
+source_status=$(jq -r '.source.status // ""' < $payload)
+source_variables=$(jq -r '.source.variables // ""' < $payload)
+
+# params config
+# params_variables=$(jq -r '.params.variables // ""' < $payload)
