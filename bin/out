@@ -6,20 +6,21 @@ exec 5>&1 # make stdout available as fd 5 for the result
 exec 1>&2 # redirect all output to stderr for logging
 
 main() {
-  echo "\n\n--[OUT]-------------------------"
+  echo "--[OUT]-------------------------"
   sourcesDirectory $1
   putResource
+  waitForCompletion
   emitResult
 }
 
 sourcesDirectory() {
   sources_dir=$1
-  echo "\n--> sources directory is: $sources_dir"
+  echo "--> sources directory is: $sources_dir"
   cd $sources_dir
 }
 
 putResource() {
-  echo "\n--> Triggering GitLab pipeline ..."
+  echo "--> Triggering GitLab pipeline ..."
 
   variables_entries=$(echo "${source_variables}" | jq -r '. | to_entries')
   cmd="curl -s --request POST --form token=${source_trigger_token} --form ref=${source_ref}"
@@ -49,6 +50,26 @@ putResource() {
 
   pipeline_created_at=$(cat $response_body | jq -r ".created_at")
   pipeline_created_at=$(trim $pipeline_created_at)
+}
+
+waitForCompletion() {
+  echo "--> wait GitLab pipeline ID ${pipeline_id} to complete"
+  until [ "${pipeline_status}" = "success" -o "${pipeline_status}" = "failed" -o "${pipeline_status}" = "canceled" ];
+  do
+    sleep 10
+    pipeline_status=$(curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
+      "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${pipeline_id}" | jq -r ".status") || exit $1
+    echo "Pipeline current status: ${pipeline_status}"
+  done
+  if [ "${pipeline_status}" = "success" ]; then
+    echo "Pipeline completed successfully"
+    emitResult
+    exit 0;
+  else
+    echo "Pipeline failed (status: ${pipeline_status})"
+    emitResult
+    exit 1;
+  fi
 }
 
 emitResult() {
