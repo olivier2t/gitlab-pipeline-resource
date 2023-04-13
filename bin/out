@@ -6,7 +6,7 @@ exec 5>&1 # make stdout available as fd 5 for the result
 exec 1>&2 # redirect all output to stderr for logging
 
 main() {
-  log "\n\n--[OUT]-------------------------"
+  echo "\n\n--[OUT]-------------------------"
   sourcesDirectory $1
   putResource
   emitResult
@@ -14,34 +14,26 @@ main() {
 
 sourcesDirectory() {
   sources_dir=$1
-  log "\n--> sources directory is: $sources_dir"
+  echo "\n--> sources directory is: $sources_dir"
   cd $sources_dir
 }
 
 putResource() {
-  log -p "\n--> Triggering GitLab pipeline ..."
+  echo "\n--> Triggering GitLab pipeline ..."
 
-echo "Variables: ${source_variables}"
   variables_entries=$(echo "${source_variables}" | jq -r '. | to_entries')
-echo "Variables entries: ${variables_entries}"
-
-  cmd="curl --request POST --form token=${source_trigger_token} --form ref=${source_ref}"
+  cmd="curl -s --request POST --form token=${source_trigger_token} --form ref=${source_ref}"
   for row in $(echo "${variables_entries}" | jq -r '.[] | @base64'); do
       _jq() {
       echo ${row} | base64 -d | jq -r ${1}
       }
-echo "Var key: $(_jq '.key')"
-echo "Var value: $(_jq '.value')"
     cmd="${cmd} --form 'variables[$(_jq '.key')]=$(_jq '.value')'"
   done
   cmd="${cmd} ${source_base_url}/api/v4/projects/${source_project_id}/trigger/pipeline"
   
-echo "Executing ${cmd}"
   response_body=$(mktemp /tmp/response_body.XXXXXX)
-  log "created file for response_body at $response_body"
-
   eval "$cmd" > $response_body || exit $1
-  cat ${response_body}
+  cat ${response_body} | jq -r '.'
 
   pipeline_id=$(cat $response_body | jq -r ".id")
   pipeline_id=$(trim $pipeline_id)
@@ -78,8 +70,8 @@ emitResult() {
   }' >&5
 }
 
-if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
-  source $(dirname $0)/common
-  source $(dirname $0)/curlops
-  main "$@"
-fi
+# if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
+#   source $(dirname $0)/common
+#   source $(dirname $0)/curlops
+#   main "$@"
+# fi
