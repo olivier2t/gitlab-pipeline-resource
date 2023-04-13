@@ -37,19 +37,10 @@ putResource() {
   cat ${response_body} | jq -r '.'
 
   pipeline_id=$(cat $response_body | jq -r ".id")
-  pipeline_id=$(trim $pipeline_id)
-
   pipeline_status=$(cat $response_body | jq -r ".status")
-  pipeline_status=$(trim $pipeline_status)
-
   pipeline_web_url=$(cat $response_body | jq -r ".web_url")
-  pipeline_web_url=$(trim $pipeline_web_url)
-
   pipeline_created_by=$(cat $response_body | jq -r ".user.name")
-  pipeline_created_by=$(trim $pipeline_created_by)
-
   pipeline_created_at=$(cat $response_body | jq -r ".created_at")
-  pipeline_created_at=$(trim $pipeline_created_at)
 }
 
 waitForCompletion() {
