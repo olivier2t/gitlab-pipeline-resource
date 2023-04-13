@@ -16,7 +16,6 @@ extractVersion() {
   jq -r '.' < $payload
   requestedVersion=$(jq -r '.version' < $payload)
   echo "requested version: $requestedVersion"
-  exit 1
 }
 
 emitResult() {
