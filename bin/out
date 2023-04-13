@@ -53,13 +53,15 @@ putResource() {
 }
 
 waitForCompletion() {
-  echo "--> wait GitLab pipeline ID ${pipeline_id} to complete"
+  echo "--> wait for GitLab pipeline ID ${pipeline_id} to complete"
+  duration=0
   until [ "${pipeline_status}" = "success" -o "${pipeline_status}" = "failed" -o "${pipeline_status}" = "canceled" ];
   do
     sleep 10
+    duration="$((duration+10))"
     pipeline_status=$(curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
       "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${pipeline_id}" | jq -r ".status") || exit $1
-    echo "Pipeline current status: ${pipeline_status}"
+    echo "Pipeline current status: ${pipeline_status} (${duration}s)"
   done
   if [ "${pipeline_status}" = "success" ]; then
     echo "Pipeline completed successfully"

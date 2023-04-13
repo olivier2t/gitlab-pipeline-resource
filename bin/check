@@ -24,7 +24,7 @@ extractVersion() {
 emitResult() {
   jq  --arg pipeline_id "$requestedVersion" \
       -n '[
-        { "id": "${pipeline_id}" }
+        { "id": $pipeline_id }
       ]' >&5
 }
 
