@@ -21,16 +21,18 @@ sourcesDirectory() {
 putResource() {
   log -p "\n--> Triggering GitLab pipeline ..."
 
-
 echo "Variables: ${source_variables}"
+  variables_entries=$(echo "${source_variables}" | jq -r '. | to_entries')
+echo "Variables entries: ${variables_entries}"
+
   cmd="curl --request POST --form token=${source_trigger_token} --form ref=${source_ref}"
-  for row in $(echo "${source_variables}" | jq -r '.[] | @base64'); do
+  for row in $(echo "${variables_entries}" | jq -r '.[] | @base64'); do
       _jq() {
-      echo ${row} | base64 --decode | jq -r ${1}
+      echo ${row} | base64 -d | jq -r ${1}
       }
-echo "Var name: $(_jq '.name')"
+echo "Var key: $(_jq '.key')"
 echo "Var value: $(_jq '.value')"
-    cmd="${cmd} --form 'variables[$(_jq '.name')]=$(_jq '.value')'"
+    cmd="${cmd} --form 'variables[$(_jq '.key')]=$(_jq '.value')'"
   done
   cmd="${cmd} ${source_base_url}/api/v4/projects/${source_project_id}/trigger/pipeline"
   
