@@ -13,9 +13,12 @@ main() {
 
 extractVersion() {
   echo "\n--> extracting requested version..."
-  jq -r '.' < $payload
   requestedVersion=$(jq -r '.version' < $payload)
   echo "requested version: $requestedVersion"
+  if [ "${requestedVersion}" = "null" -o ${#requestedVersion} -le 3 ]; then
+    jq  -n '[]' >&5
+    exit 0
+  fi
 }
 
 emitResult() {
