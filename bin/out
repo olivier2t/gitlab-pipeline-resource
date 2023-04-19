@@ -10,7 +10,6 @@ main() {
   sourcesDirectory $1
   putResource
   waitForCompletion
-  writePipelineLogs
   emitResult
 }
 
@@ -54,6 +53,7 @@ waitForCompletion() {
       "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${pipeline_id}" | jq -r ".status") || exit $1
     echo "Pipeline current status: ${pipeline_status} (${duration}s)"
   done
+  writePipelineLogs
   if [ "${pipeline_status}" = "success" ]; then
     echo "Pipeline completed successfully"
   else
