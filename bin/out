@@ -10,12 +10,12 @@ main() {
   sourcesDirectory $1
   putResource
   waitForCompletion
+  writePipelineLogs
   emitResult
 }
 
 sourcesDirectory() {
   sources_dir=$1
-  echo "--> sources directory is: $sources_dir"
   cd $sources_dir
 }
 
@@ -62,6 +62,33 @@ waitForCompletion() {
     echo "Aborting job..."
     exit 1;
   fi
+}
+
+writePipelineLogs() {
+  pipeline_jobs=$(curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
+      "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${pipeline_id}/jobs")
+
+  for row in $(echo "${pipeline_jobs}" | jq -r '.[] | @base64'); do
+    _jq() {
+    echo ${row} | base64 -d | jq -r ${1}
+    }
+    job_id=$(_jq '.id')
+    job_name=$(_jq '.name')
+    echo
+    echo ">>>>>>> Job Completion Report"
+    echo "id: ${job_id}"
+    echo "name: $(_jq '.name')"
+    echo "created_at: $(_jq '.created_at')"
+    echo "started_at: $(_jq '.started_at')"
+    echo "finished_at: $(_jq '.finished_at')"
+    echo "status: $(_jq '.status')"
+    echo "web_url: $(_jq '.web_url')"
+    echo "<<============== START OF TRACE - JOB ${job_name} (${job_id}) ===============>>"
+    curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
+      "${source_base_url}/api/v4/projects/${source_project_id}/jobs/${job_id}/trace"
+    echo "<<=============== END OF TRACE - JOB ${job_name} (${job_id}) ===============>>"
+  done
+
 }
 
 emitResult() {
