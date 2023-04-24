@@ -14,7 +14,7 @@ main() {
 }
 
 sourcesDirectory() {
-  sources_dir=$1
+  sources_dir=${1:-`echo $TMPDIR`}
   cd $sources_dir
 }
 
@@ -34,6 +34,7 @@ putResource() {
   response_body=$(mktemp /tmp/response_body.XXXXXX)
   eval "$cmd" > $response_body || exit $1
   cat ${response_body} | jq -r '.'
+  cp ${response_body} ${sources_dir}/body
 
   pipeline_id=$(cat $response_body | jq -r ".id")
   pipeline_status=$(cat $response_body | jq -r ".status")
@@ -58,12 +59,20 @@ waitForCompletion() {
   access_token=${source_access_token}
   writePipelineLogs
 
-  pipeline_bridges=$(curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
-    "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${pipeline_id}/bridges")
+  response_pipeline_bridges_body=$(mktemp /tmp/response_pipeline_bridges_body.XXXXXX)
+  curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
+    "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${pipeline_id}/bridges" > $response_pipeline_bridges_body || exit $1
+  cat ${response_pipeline_bridges_body} | jq -r '.'
+  cp ${response_pipeline_bridges_body} ${sources_dir}/pipeline_bridges_body
   for row in $(echo "${pipeline_bridges}" | jq -r '.[] | @base64'); do
     _jq() {
     echo ${row} | base64 -d | jq -r ${1}
     }
+    echo ===
+    echo "Processing downstream pipeline..." 
+    echo ${row} | base64 -d
+    echo ---
+    _jq '.downstream_pipeline' 
     pipeline_id=$(_jq '.downstream_pipeline.id')
     project_id=$(_jq '.downstream_pipeline.project_id')
     access_token=$(echo "${source_access_token_downstream_projects}" | jq -r ".${project_id}")
