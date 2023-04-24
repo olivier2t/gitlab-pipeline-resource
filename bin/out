@@ -53,7 +53,23 @@ waitForCompletion() {
       "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${pipeline_id}" | jq -r ".status") || exit $1
     echo "Pipeline current status: ${pipeline_status} (${duration}s)"
   done
+
+  project_id=${source_project_id}
+  access_token=${source_access_token}
   writePipelineLogs
+
+  pipeline_bridges=$(curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
+    "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${pipeline_id}/bridges")
+  for row in $(echo "${pipeline_bridges}" | jq -r '.[] | @base64'); do
+    _jq() {
+    echo ${row} | base64 -d | jq -r ${1}
+    }
+    pipeline_id=$(_jq '.downstream_pipeline.id')
+    project_id=$(_jq '.downstream_pipeline.project_id')
+    access_token=$(echo "${source_access_token_downstream_projects}" | jq -r ".${project_id}")
+    writePipelineLogs
+  done
+
   if [ "${pipeline_status}" = "success" ]; then
     echo "Pipeline completed successfully"
   else
@@ -65,8 +81,8 @@ waitForCompletion() {
 }
 
 writePipelineLogs() {
-  pipeline_jobs=$(curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
-      "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${pipeline_id}/jobs")
+  pipeline_jobs=$(curl -s --header "PRIVATE-TOKEN: ${access_token}" \
+      "${source_base_url}/api/v4/projects/${project_id}/pipelines/${pipeline_id}/jobs")
 
   for row in $(echo "${pipeline_jobs}" | jq -r '.[] | @base64'); do
     _jq() {
@@ -88,7 +104,6 @@ writePipelineLogs() {
       "${source_base_url}/api/v4/projects/${source_project_id}/jobs/${job_id}/trace"
     echo "<<=============== END OF TRACE - JOB ${job_name} (${job_id}) ===============>>"
   done
-
 }
 
 emitResult() {
