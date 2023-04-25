@@ -60,7 +60,7 @@ waitForCompletion() {
   writePipelineLogs
 
   response_pipeline_bridges_body=$(mktemp /tmp/response_pipeline_bridges_body.XXXXXX)
-  curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
+  curl -s --header "PRIVATE-TOKEN: ${access_token}" \
     "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${pipeline_id}/bridges" > $response_pipeline_bridges_body || exit $1
   cat ${response_pipeline_bridges_body} | jq -r '.'
   cp ${response_pipeline_bridges_body} ${sources_dir}/pipeline_bridges_body
@@ -88,9 +88,9 @@ waitForCompletion() {
 }
 
 writePipelineLogs() {
-  source_access_token=$(mktemp /tmp/source_access_token.XXXXXX)
-  echo "${access_token}" > $source_access_token
-  cp ${source_access_token} ${sources_dir}
+  access_token_tmp=$(mktemp /tmp/source_access_token.XXXXXX)
+  echo "${access_token}" > $access_token_tmp
+  cp ${access_token_tmp} ${sources_dir}
 
   response_pipeline_jobs_body=$(mktemp /tmp/response_pipeline_jobs_body.XXXXXX)
   curl -s --header "PRIVATE-TOKEN: ${access_token}" \
@@ -105,16 +105,18 @@ writePipelineLogs() {
     job_name=$(_jq '.name')
     echo
     echo ">>>>>>> Job Completion Report"
-    echo "id: ${job_id}"
-    echo "name: $(_jq '.name')"
+    echo "job name: $(_jq '.name')"
+    echo "job id: ${job_id}"
+    echo "pipeline id: ${pipeline_id}"
+    echo "project id: ${project_id}"
     echo "created_at: $(_jq '.created_at')"
     echo "started_at: $(_jq '.started_at')"
     echo "finished_at: $(_jq '.finished_at')"
     echo "status: $(_jq '.status')"
     echo "web_url: $(_jq '.web_url')"
     echo "<<============== START OF TRACE - JOB ${job_name} (${job_id}) ===============>>"
-    curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
-      "${source_base_url}/api/v4/projects/${source_project_id}/jobs/${job_id}/trace"
+    curl -s --header "PRIVATE-TOKEN: ${access_token}" \
+      "${source_base_url}/api/v4/projects/${project_id}/jobs/${job_id}/trace"
     echo "<<=============== END OF TRACE - JOB ${job_name} (${job_id}) ===============>>"
   done
 }
