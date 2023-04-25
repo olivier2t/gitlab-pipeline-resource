@@ -65,7 +65,7 @@ echo "project_id"
 project_id_tmp=5678
 echo $project_id_tmp
 echo "var | project_id access token"
-echo "${source_access_token_downstream_projects}" | jq -r ".${project_id_tmp}"
+echo "${source_access_token_downstream_projects}" | jq -r ".\"${project_id_tmp}\""
 echo "END"
 
   response_pipeline_bridges_body=$(mktemp /tmp/response_pipeline_bridges_body.XXXXXX)
