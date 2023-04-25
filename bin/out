@@ -82,7 +82,7 @@ echo "END"
     echo ${row} | base64 -d
     pipeline_id=$(_jq '.downstream_pipeline.id')
     project_id=$(_jq '.downstream_pipeline.project_id')
-    access_token=$(echo "${source_access_token_downstream_projects}" | jq -r ".${project_id}")
+    access_token=$(echo "${source_access_token_downstream_projects}" | jq -r ".\"${project_id}\""
     writePipelineLogs
   done
 
@@ -97,10 +97,13 @@ echo "END"
 }
 
 writePipelineLogs() {
-  pipeline_jobs=$(curl -s --header "PRIVATE-TOKEN: ${access_token}" \
-      "${source_base_url}/api/v4/projects/${project_id}/pipelines/${pipeline_id}/jobs")
+  echo "Getting Jobs list for project ${project_id} pipeline ${pipeline_id} with access token ${access_token}"
+  response_pipeline_jobs_body=$(mktemp /tmp/response_pipeline_jobs_body.XXXXXX)
+  curl -s --header "PRIVATE-TOKEN: ${access_token}" \
+    "${source_base_url}/api/v4/projects/${project_id}/pipelines/${pipeline_id}/jobs" > $response_pipeline_jobs_body || exit $1
+  cp ${response_pipeline_jobs_body} ${sources_dir}
 
-  for row in $(echo "${pipeline_jobs}" | jq -r '.[] | @base64'); do
+  for row in $(cat "${response_pipeline_jobs_body}"  | jq -r '.[] | @base64'); do
     _jq() {
     echo ${row} | base64 -d | jq -r ${1}
     }
