@@ -59,6 +59,15 @@ waitForCompletion() {
   access_token=${source_access_token}
   writePipelineLogs
 
+echo "var"
+echo "${source_access_token_downstream_projects}"
+echo "project_id"
+project_id_tmp=5678
+echo $project_id_tmp
+echo "var | project_id access token"
+echo "${source_access_token_downstream_projects}" | jq -r ".${project_id_tmp}"
+echo "END"
+
   response_pipeline_bridges_body=$(mktemp /tmp/response_pipeline_bridges_body.XXXXXX)
   curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
     "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${pipeline_id}/bridges" > $response_pipeline_bridges_body || exit $1
