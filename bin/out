@@ -36,26 +36,27 @@ putResource() {
   cat ${response_body} | jq -r '.'
   cp ${response_body} ${sources_dir}/body
 
-  pipeline_id=$(cat $response_body | jq -r ".id")
-  pipeline_status=$(cat $response_body | jq -r ".status")
-  pipeline_web_url=$(cat $response_body | jq -r ".web_url")
-  pipeline_created_by=$(cat $response_body | jq -r ".user.name")
-  pipeline_created_at=$(cat $response_body | jq -r ".created_at")
+  resource_pipeline_id=$(cat $response_body | jq -r ".id")
+  resource_pipeline_status=$(cat $response_body | jq -r ".status")
+  resource_pipeline_web_url=$(cat $response_body | jq -r ".web_url")
+  resource_pipeline_created_by=$(cat $response_body | jq -r ".user.name")
+  resource_pipeline_created_at=$(cat $response_body | jq -r ".created_at")
 }
 
 waitForCompletion() {
-  echo "--> wait for GitLab pipeline ID ${pipeline_id} to complete"
+  echo "--> wait for GitLab pipeline ID ${resource_pipeline_id} to complete"
   duration=0
-  until [ "${pipeline_status}" = "success" -o "${pipeline_status}" = "failed" -o "${pipeline_status}" = "canceled" ];
+  until [ "${resource_pipeline_status}" = "success" -o "${resource_pipeline_status}" = "failed" -o "${resource_pipeline_status}" = "canceled" ];
   do
     sleep 10
     duration="$((duration+10))"
-    pipeline_status=$(curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
-      "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${pipeline_id}" | jq -r ".status") || exit $1
-    echo "Pipeline current status: ${pipeline_status} (${duration}s)"
+    resource_pipeline_status=$(curl -s --header "PRIVATE-TOKEN: ${source_access_token}" \
+      "${source_base_url}/api/v4/projects/${source_project_id}/pipelines/${resource_pipeline_id}" | jq -r ".status") || exit $1
+    echo "Pipeline current status: ${resource_pipeline_status} (${duration}s)"
   done
 
   project_id=${source_project_id}
+  pipeline_id=${resource_pipeline_id}
   access_token=${source_access_token}
   writePipelineLogs
 
@@ -68,20 +69,17 @@ waitForCompletion() {
     _jq() {
     echo ${row} | base64 -d | jq -r ${1}
     }
-    echo ===
-    echo "Processing downstream pipeline..." 
-    echo ${row} | base64 -d
     pipeline_id=$(_jq '.downstream_pipeline.id')
     project_id=$(_jq '.downstream_pipeline.project_id')
     access_token=$(echo "${source_access_token_downstream_projects}" | jq -r ".\"${project_id}\"")
     writePipelineLogs
   done
 
-  if [ "${pipeline_status}" = "success" ]; then
+  if [ "${resource_pipeline_status}" = "success" ]; then
     echo "Pipeline completed successfully"
   else
-    echo "Pipeline did not complete (status: ${pipeline_status})"
-    echo "--> GitLab pipeline URL: ${pipeline_web_url}"
+    echo "Pipeline did not complete (status: ${resource_pipeline_status})"
+    echo "--> GitLab pipeline URL: ${resource_pipeline_web_url}"
     echo "Aborting job..."
     exit 1;
   fi
@@ -122,11 +120,11 @@ writePipelineLogs() {
 }
 
 emitResult() {
-  jq  --arg pipeline_id "$pipeline_id" \
-      --arg pipeline_status "$pipeline_status" \
-      --arg pipeline_web_url "$pipeline_web_url" \
-      --arg pipeline_created_by "$pipeline_created_by" \
-      --arg pipeline_created_at "$pipeline_created_at" \
+  jq  --arg pipeline_id "$resource_pipeline_id" \
+      --arg pipeline_status "$resource_pipeline_status" \
+      --arg pipeline_web_url "$resource_pipeline_web_url" \
+      --arg pipeline_created_by "$resource_pipeline_created_by" \
+      --arg pipeline_created_at "$resource_pipeline_created_at" \
       -n '{
     "version": {
       "id": $pipeline_id
